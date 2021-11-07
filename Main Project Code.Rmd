@@ -1,0 +1,110 @@
+---
+title: "Final Project Reproducible Research"
+author: "Travis Helm"
+date: "11/7/2021"
+output: html_document
+---
+# Final Project
+
+This projet
+
+## Loading Libraries
+```{r loading libraries}
+library(dplyr)
+library(ggplot2)
+```
+
+
+## DATA PROCESSING
+
+In this section I load the data from the website and convert the property damage and crop damage fields to 
+dollar amounts in millions for analyses. Currently the numeric columns for these are stored with different magnitudes
+(single dollars[], thousands [K], millions [M], billions[B])
+
+```{r reading data}
+require(data.table)
+Starting <- fread("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2")
+
+Starting2 <- Starting %>% 
+  mutate(propdmgM = case_when(PROPDMGEXP == 'K' ~ PROPDMG/1000,
+                              PROPDMGEXP == 'M' ~ PROPDMG,
+                              PROPDMGEXP == 'B' ~ PROPDMG*1000,
+                              PROPDMGEXP == '' ~ PROPDMG/1000000
+                              ),
+         cropdmgM = case_when(CROPDMGEXP == 'K' ~ CROPDMG/1000,
+                              CROPDMGEXP == 'M' ~ CROPDMG,
+                              CROPDMGEXP == 'B' ~ CROPDMG*1000,
+                              CROPDMGEXP == '' ~ CROPDMG/1000000
+                              )) %>% 
+  mutate(DeathInjuries = FATALITIES + INJURIES,
+         CropPropDamageM = propdmgM + cropdmgM)
+
+ByEventType <- Starting2 %>% 
+  group_by(EVTYPE, dig.lab = 8) %>% 
+  summarise(FATALITIES = sum(FATALITIES, na.rm = TRUE),
+            INJURIES = sum(INJURIES, na.rm = TRUE),
+            CROPDAMAGE = sum(cropdmgM, na.rm = TRUE),
+            PROPDAMAGE = sum(propdmgM, na.rm = TRUE),
+            CropPropDamageM = round(sum(CropPropDamageM, na.rm = TRUE), digits = 3),
+            FatalitiesInjuries = sum(DeathInjuries)) %>% 
+  ungroup()
+
+FatalitiesTop10 <- ByEventType %>% 
+  arrange(desc(FATALITIES)) %>% 
+  top_n(10, FATALITIES)
+
+InjuriesTop10 <- ByEventType %>% 
+  arrange(desc(INJURIES)) %>% 
+  top_n(10, INJURIES)
+
+FatalitiesInjuriesTop10 <- ByEventType %>% 
+  arrange(desc(FatalitiesInjuries)) %>% 
+  top_n(10, FatalitiesInjuries)
+
+PropDamageTop10 <- ByEventType %>% 
+  arrange(desc(PROPDAMAGE)) %>% 
+  top_n(10, PROPDAMAGE)
+
+CropDamageTop10 <- ByEventType %>% 
+  arrange(desc(CROPDAMAGE)) %>% 
+  top_n(10, CROPDAMAGE)
+
+CropPropDamageTop10 <- ByEventType %>% 
+  arrange(desc(CropPropDamageM)) %>% 
+  top_n(10, CropPropDamageM)
+
+
+
+```
+
+## RESULTS
+
+```{r results1}
+ggplot(FatalitiesTop10, aes(x=reorder(EVTYPE, FATALITIES), y=FATALITIES)) +
+  geom_bar(stat = 'identity') +
+  coord_flip()
+
+ggplot(InjuriesTop10, aes(x=reorder(EVTYPE, INJURIES), y=INJURIES)) +
+  geom_bar(stat = 'identity') +
+  coord_flip()
+
+ggplot(FatalitiesInjuriesTop10, aes(x=reorder(EVTYPE, FatalitiesInjuries), y=FatalitiesInjuries)) +
+  geom_bar(stat = 'identity') +
+  coord_flip()
+
+ggplot(CropDamageTop10, aes(x=reorder(EVTYPE, CROPDAMAGE), y=CROPDAMAGE)) +
+  geom_bar(stat = 'identity') +
+  coord_flip()
+
+ggplot(PropDamageTop10, aes(x=reorder(EVTYPE, PROPDAMAGE), y=PROPDAMAGE)) +
+  geom_bar(stat = 'identity') +
+  coord_flip()
+
+ggplot(CropPropDamageTop10, aes(x=reorder(EVTYPE, CropPropDamageM), y=CropPropDamageM)) +
+  geom_bar(stat = 'identity') +
+  coord_flip()
+
+
+```
+
+
