@@ -1,17 +1,18 @@
----
-title: "Final Project Reproducible Research"
-author: "Travis Helm"
-date: "11/7/2021"
-output: html_document
----
-# Final Project
+# The Major Weather Event Contributors of Health and Economic Impact within the United States
 
-This projet
+### This project looks at different weather events to determine the top 5 impactful events in areas of deaths, injuries, crop damage (in millions of dollars) and property damage (in millions of dollars). Key findings:
+- Tornadoes are by far and away the largest contributor to deaths and fatalities
+- Property damage is much greater in economic value than crop damage. 
+- Droughts are the largest problem for crop damage whereas flooding creates the greatest property damage
+
 
 ## Loading Libraries
 ```{r loading libraries}
+library(data.table)
 library(dplyr)
 library(ggplot2)
+library(patchwork)
+library(egg)
 ```
 
 
@@ -21,8 +22,11 @@ In this section I load the data from the website and convert the property damage
 dollar amounts in millions for analyses. Currently the numeric columns for these are stored with different magnitudes
 (single dollars[], thousands [K], millions [M], billions[B])
 
+The data is also grouped by event type to calculate the total impact per area of interest (deaths, injuries,
+crop damage and property damage). Finally, the top 10 are kept for report out.
+
 ```{r reading data}
-require(data.table)
+
 Starting <- fread("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2")
 
 Starting2 <- Starting %>% 
@@ -49,29 +53,29 @@ ByEventType <- Starting2 %>%
             FatalitiesInjuries = sum(DeathInjuries)) %>% 
   ungroup()
 
-FatalitiesTop10 <- ByEventType %>% 
+FatalitiesTop <- ByEventType %>% 
   arrange(desc(FATALITIES)) %>% 
-  top_n(10, FATALITIES)
+  top_n(5, FATALITIES)
 
-InjuriesTop10 <- ByEventType %>% 
+InjuriesTop <- ByEventType %>% 
   arrange(desc(INJURIES)) %>% 
-  top_n(10, INJURIES)
+  top_n(5, INJURIES)
 
-FatalitiesInjuriesTop10 <- ByEventType %>% 
+FatalitiesInjuriesTop <- ByEventType %>% 
   arrange(desc(FatalitiesInjuries)) %>% 
-  top_n(10, FatalitiesInjuries)
+  top_n(5, FatalitiesInjuries)
 
-PropDamageTop10 <- ByEventType %>% 
+PropDamageTop <- ByEventType %>% 
   arrange(desc(PROPDAMAGE)) %>% 
-  top_n(10, PROPDAMAGE)
+  top_n(5, PROPDAMAGE)
 
-CropDamageTop10 <- ByEventType %>% 
+CropDamageTop <- ByEventType %>% 
   arrange(desc(CROPDAMAGE)) %>% 
-  top_n(10, CROPDAMAGE)
+  top_n(5, CROPDAMAGE)
 
-CropPropDamageTop10 <- ByEventType %>% 
+CropPropDamageTop <- ByEventType %>% 
   arrange(desc(CropPropDamageM)) %>% 
-  top_n(10, CropPropDamageM)
+  top_n(5, CropPropDamageM)
 
 
 
@@ -79,30 +83,82 @@ CropPropDamageTop10 <- ByEventType %>%
 
 ## RESULTS
 
+I graph the results with a horizontal bar chart and only kept the top 5 weather events for both
+health and economic impact.  Below you see the graphs for fatalities and injuries.  The main point is 
+that tornadoes are the main culprit for deaths and injuries amongst the weather events.
+
 ```{r results1}
-ggplot(FatalitiesTop10, aes(x=reorder(EVTYPE, FATALITIES), y=FATALITIES)) +
-  geom_bar(stat = 'identity') +
-  coord_flip()
 
-ggplot(InjuriesTop10, aes(x=reorder(EVTYPE, INJURIES), y=INJURIES)) +
-  geom_bar(stat = 'identity') +
-  coord_flip()
+#png(filename="Injuries and Fatalities.png", width=1200, height=600)
 
-ggplot(FatalitiesInjuriesTop10, aes(x=reorder(EVTYPE, FatalitiesInjuries), y=FatalitiesInjuries)) +
+p1 <- ggplot(FatalitiesTop, aes(x=reorder(EVTYPE, FATALITIES), y=FATALITIES)) +
   geom_bar(stat = 'identity') +
-  coord_flip()
+  coord_flip() +
+ggtitle('Top 10 for Fatalities') +
+  ylab('Fatalities') +
+  xlab('') +
+  scale_y_continuous( limits=c(0, 100000))
 
-ggplot(CropDamageTop10, aes(x=reorder(EVTYPE, CROPDAMAGE), y=CROPDAMAGE)) +
+p2 <- ggplot(InjuriesTop, aes(x=reorder(EVTYPE, INJURIES), y=INJURIES)) +
   geom_bar(stat = 'identity') +
-  coord_flip()
+  coord_flip() +
+ggtitle('Top 10 for Injuries') +
+  ylab('Injuries') +
+  xlab('Weather Event Type') +
+  scale_y_continuous( limits=c(0, 100000))
 
-ggplot(PropDamageTop10, aes(x=reorder(EVTYPE, PROPDAMAGE), y=PROPDAMAGE)) +
+p3 <- ggplot(FatalitiesInjuriesTop, aes(x=reorder(EVTYPE, FatalitiesInjuries), y=FatalitiesInjuries)) +
   geom_bar(stat = 'identity') +
-  coord_flip()
+  coord_flip() +
+ggtitle('Top 10 for Fatalities/Injuries Combined') +
+  ylab('Fatalities/Injuries') +
+  xlab('') +
+  scale_y_continuous( limits=c(0, 100000)) +
+  labs(caption = "Figure 1: Major Health Weather Events") +
+  theme(plot.caption = element_text(hjust = 0))
 
-ggplot(CropPropDamageTop10, aes(x=reorder(EVTYPE, CropPropDamageM), y=CropPropDamageM)) +
+p1+p2+p3 + plot_layout(nrow = 3) 
+
+```
+
+
+Below you see the economic impact of weather events in the form of crop and property damage.  Drought is
+the major contributor to costs associated with crop damage.  However, the overall amount of damage from
+crops is far less than the costs associated with property damage.  For property damage, flooding is the 
+greatest contributor to economic impact.
+
+```{r results2}
+
+p4 <- ggplot(CropDamageTop, aes(x=reorder(EVTYPE, CROPDAMAGE), y=CROPDAMAGE)) +
   geom_bar(stat = 'identity') +
-  coord_flip()
+  coord_flip() +
+ ggtitle('Top 10 for Crop Damage') +
+  ylab('') +
+  xlab('') +
+  scale_y_continuous( limits=c(0, 175000))
+
+p5 <- ggplot(PropDamageTop, aes(x=reorder(EVTYPE, PROPDAMAGE), y=PROPDAMAGE)) +
+  geom_bar(stat = 'identity') +
+  coord_flip() +
+ ggtitle('Top 10 for Property Damage') +
+  ylab('') +
+  xlab('Weather Event Type') +
+  scale_y_continuous( limits=c(0, 175000))
+
+p6 <- ggplot(CropPropDamageTop, aes(x=reorder(EVTYPE, CropPropDamageM), y=CropPropDamageM)) +
+  geom_bar(stat = 'identity') +
+  coord_flip() +
+ ggtitle('Top 10 Crop and Property Damage Combined') +
+  ylab('Damage ($Millions)') +
+  xlab('') +
+  scale_y_continuous( limits=c(0, 175000)) +
+  labs(caption = "Figure 2: Major Economic Weather Events") +
+  theme(plot.caption = element_text(hjust = 0))
+
+p4+p5+p6 + plot_layout(nrow = 3) 
+
+
+
 
 
 ```
